@@ -1,0 +1,264 @@
+<title>Target vs. Achieved Return — 180 Episodes</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --grid:           #e1e0d9;
+    --baseline:       #c3c2b7;
+    --pos:            #2a78d6; /* achieved >= target */
+    --neg:            #e34948; /* achieved < target */
+    --border:         rgba(11,11,11,0.10);
+    --tooltip-bg:      #0b0b0b;
+    --tooltip-text:    #ffffff;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--text-primary);
+    padding: 32px;
+    box-sizing: border-box;
+    min-height: 100vh;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --grid:           #2c2c2a;
+      --baseline:       #383835;
+      --pos:            #3987e5;
+      --neg:            #e66767;
+      --border:         rgba(255,255,255,0.10);
+      --tooltip-bg:      #ffffff;
+      --tooltip-text:    #0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --baseline:       #383835;
+    --pos:            #3987e5;
+    --neg:            #e66767;
+    --border:         rgba(255,255,255,0.10);
+    --tooltip-bg:      #ffffff;
+    --tooltip-text:    #0b0b0b;
+  }
+
+  .card {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px 24px;
+    position: relative;
+  }
+  h1 { font-size: 18px; font-weight: 600; margin: 0 0 2px; }
+  .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 6px; }
+  .callout {
+    font-size: 12.5px; color: var(--text-secondary); margin: 0 0 18px;
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; display: inline-block;
+  }
+  .callout b { color: var(--text-primary); }
+
+  .legend { display: flex; gap: 20px; margin-bottom: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-secondary); }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .swatch.pos { background: var(--pos); }
+  .swatch.neg { background: var(--neg); }
+  .swatch.ref { width: 14px; height: 0; border-top: 2px dashed var(--text-muted); border-radius: 0; }
+
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .axis-line { stroke: var(--baseline); stroke-width: 1; }
+  .tick-label { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .axis-title { fill: var(--text-secondary); font-size: 11.5px; }
+  .ref-line { stroke: var(--text-muted); stroke-width: 2; stroke-dasharray: 5 4; fill: none; }
+  .pt { cursor: pointer; }
+  .pt-hit { fill: transparent; }
+  .pt-dot { r: 5; stroke: var(--surface-1); stroke-width: 2; transition: r 0.1s ease; }
+  .pt-dot.pos { fill: var(--pos); }
+  .pt-dot.neg { fill: var(--neg); }
+  .pt:hover .pt-dot, .pt:focus .pt-dot { r: 7; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.1s ease;
+    background: var(--tooltip-bg); color: var(--tooltip-text);
+    font-size: 12px; padding: 7px 10px; border-radius: 6px; white-space: nowrap;
+    transform: translate(-50%, -100%);
+    z-index: 10;
+  }
+  .tooltip .tt-val { font-weight: 600; }
+  .tooltip .tt-sub { opacity: 0.75; font-size: 11px; margin-top: 2px; }
+
+  details.table-toggle { margin-top: 20px; }
+  details.table-toggle summary {
+    cursor: pointer; font-size: 12.5px; color: var(--text-secondary);
+    padding: 6px 0; user-select: none;
+  }
+  table.data-table {
+    width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px;
+    max-height: 400px; display: block; overflow-y: auto;
+  }
+  table.data-table thead { position: sticky; top: 0; background: var(--surface-1); }
+  table.data-table th, table.data-table td {
+    text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--grid);
+    font-variant-numeric: tabular-nums;
+  }
+  table.data-table th:first-child, table.data-table td:first-child { text-align: left; }
+  table.data-table th { color: var(--text-muted); font-weight: 500; }
+  td.diff-pos { color: var(--pos); }
+  td.diff-neg { color: var(--neg); }
+</style>
+
+<div class="viz-root">
+  <div class="card">
+    <h1>Target return vs. achieved return</h1>
+    <p class="subtitle">180-episode generation run · HalfCheetah-medium-v2 · gpt/real_run (epoch 48) · random RTG targets in [3,000, 13,000]</p>
+    <div class="callout">Pearson r = <b>0.04</b> — achieved return shows essentially <b>no correlation</b> with the target it was conditioned on</div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch pos"></span>Met or exceeded target (96 episodes)</div>
+      <div class="legend-item"><span class="swatch neg"></span>Fell short of target (84 episodes)</div>
+      <div class="legend-item"><span class="swatch ref"></span>Perfect calibration (achieved = target)</div>
+    </div>
+
+    <svg id="chart" viewBox="0 0 820 460" role="img" aria-label="Scatter plot of target return vs achieved return for 180 episodes">
+      <g id="gridlines"></g>
+      <g id="refline"></g>
+      <g id="points"></g>
+      <g id="axes"></g>
+    </svg>
+
+    <div class="tooltip" id="tooltip"></div>
+
+    <details class="table-toggle">
+      <summary>View full data table (180 episodes)</summary>
+      <table class="data-table">
+        <thead>
+          <tr><th>Episode</th><th>Target return</th><th>Achieved return</th><th>Diff</th></tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </details>
+  </div>
+</div>
+
+<script>
+  const data = [[0, 9304.892366286516, 4201.030602383585], [1, 12699.66339131328, 3402.3912117767313], [2, 4472.069378838682, 14469.604426291573], [3, 12196.774668865404, -50.24063807902224], [4, 9742.58490059093, 14436.91252152764], [5, 7026.104221744723, 5037.111402130027], [6, 10840.990110832183, 14053.495112487724], [7, 10667.611905234962, 15055.737554486757], [8, 12136.011503087795, 14501.102492963448], [9, 10313.720503993503, 13278.61793161561], [10, 6056.784922478795, 13641.126855829669], [11, 4063.2338431379903, 14315.011162138684], [12, 11476.383817344667, -61.1064121379678], [13, 6154.060877040337, 249.80444460923866], [14, 9627.446975254377, 6259.008163113363], [15, 8127.049109766683, 10170.452753046337], [16, 7065.9777394382, 14247.227074751812], [17, 9933.430242254624, 14292.210854013385], [18, 6781.280758460041, 14626.994255969079], [19, 11842.406335795571, 14875.278869856302], [20, 11361.407038950334, 5679.905188220251], [21, 10656.533425016325, 10445.439526619899], [22, 10581.619018543583, 7675.751413061414], [23, 11384.014967526826, 14355.039705742587], [24, 4865.243911012165, 13903.888534286994], [25, 8603.807069312765, 14721.5048304881], [26, 7635.39952327776, 14144.356133297937], [27, 3674.209376328645, 807.0575401917997], [28, 4816.112569356283, 13437.257709081445], [29, 8450.92300290647, 4628.511403832088], [30, 12845.341712198902, 5301.983082917649], [31, 10053.711659651604, 8537.531684600246], [32, 10069.367903116701, 11292.923323921546], [33, 4571.136048489202, -302.10722847187293], [34, 11248.687711268125, -38.46801702950758], [35, 11992.407129634616, 60.35827328537666], [36, 8145.612342698214, 3903.3798907951837], [37, 11468.055615089881, 7242.781792075503], [38, 4910.397129568892, 13619.94719874415], [39, 8767.32376817815, 4006.713037827254], [40, 3724.5814205534753, 14776.100544334891], [41, 4146.4700211643085, 835.4210631393721], [42, 5722.277734094687, 14589.437060265791], [43, 10535.961559592972, 14327.347467126328], [44, 10569.572023172954, 14338.165270670175], [45, 8518.079862484792, 7584.470173738153], [46, 12885.448028686813, 13667.405433250402], [47, 9800.242315662368, 315.55235822721585], [48, 12662.447766678108, 13869.181535446394], [49, 6130.513585079131, 3239.7114702099225], [50, 7720.633745291657, 14706.630141034548], [51, 6574.863748089791, 5424.74288154268], [52, 8102.679460617445, 14603.937758881006], [53, 5469.39123073477, 12910.63212782728], [54, 7301.912965466754, 11163.024162817599], [55, 3109.249839832687, 7275.038753397903], [56, 8010.722279536498, 5483.904811650571], [57, 7276.356827115613, 10715.372239554483], [58, 6520.22917157409, 541.1742070808397], [59, 5951.820714023766, 13408.859417068581], [60, 8921.276349784494, 13461.434542090701], [61, 11467.468685550024, 1109.1127911994938], [62, 9119.992500360742, 13014.655977458086], [63, 8758.853408284001, 10793.699561330262], [64, 12419.12277730861, 10859.714469227913], [65, 4826.2068750456265, 9679.724927730844], [66, 4204.24093691991, 3575.9390469303257], [67, 6970.811759442221, 296.4587297869432], [68, 10144.529839580435, 8735.530968374587], [69, 7967.932147519923, 14416.405270778127], [70, 3886.8362946567277, 14826.88145766968], [71, 11680.200256176413, 6382.91142490326], [72, 6401.148071741243, 7006.976464357153], [73, 9253.426564903233, 7639.610884691946], [74, 12079.79901634038, 14742.414033776331], [75, 7270.6872739167065, 14589.707972405799], [76, 5114.18091850852, 9008.041282850054], [77, 9640.248576315584, 7379.127439540103], [78, 4241.392220966025, 5303.557167837077], [79, 11818.399761353874, 6954.29249831193], [80, 12946.26127095275, 14393.486288034303], [81, 8144.187463291506, 7794.543607186677], [82, 4919.657756254244, 13840.013260392541], [83, 10332.538743183239, 3991.877271343054], [84, 10889.34253049003, 8080.735389821964], [85, 3872.364949008978, 4346.5722395338735], [86, 5910.325398652391, 167.78490949818968], [87, 6501.52293251284, -62.44671125776027], [88, 8407.103127791139, 14996.963811193411], [89, 6649.866533730953, 8899.277394179277], [90, 7998.125727625865, 3904.937454093708], [91, 11929.623949731904, 14655.968328225965], [92, 10066.223721085029, 6334.59806133186], [93, 8859.98496977942, 7428.3308003690645], [94, 9174.847610634053, 3543.140454936823], [95, 11447.08469099704, -53.49657780165492], [96, 12954.450887874464, 14141.551808811071], [97, 12239.706516075463, -88.40529106635864], [98, 12528.430560183146, 4898.562338678262], [99, 6160.0889683600635, 3745.1999720191957], [100, 7188.299090040706, 14418.240335492877], [101, 11655.591946216824, 6580.371395035792], [102, 7077.824238569921, 3069.704455814905], [103, 8604.81460826203, 9343.666487560336], [104, 9055.606174504926, 15062.374516995747], [105, 6102.177254062575, 10618.56230384532], [106, 5974.760604534504, 7830.252232708361], [107, 11346.725455570679, 14798.966671365637], [108, 3657.812153475087, 13237.904299628426], [109, 6355.383522152681, 1053.0466911776155], [110, 8160.879685182569, 5178.817551276266], [111, 11099.805600724403, 9512.36580462034], [112, 3657.847236094831, 10111.861812606912], [113, 10569.704401068178, 14144.64750199471], [114, 9818.315971695649, 14732.689162679893], [115, 6314.035397540457, 3899.384820937741], [116, 9248.079548434203, 3001.4455089313255], [117, 8635.187636509008, 10987.893165786074], [118, 6569.883042914396, 11956.925390413988], [119, 11094.669330641178, 968.9936693146389], [120, 10336.168107504433, -57.899114116514696], [121, 11518.924138997872, 14328.866048673697], [122, 4135.211208152803, 12019.093650592862], [123, 8362.408398414012, 14581.71422759372], [124, 8768.427452421587, 5093.585114060526], [125, 8723.30767663752, 9679.22991786892], [126, 9595.217921686788, 11712.15072595235], [127, 3632.9744537164506, 773.4784142617583], [128, 8814.197635866925, 13820.946494524185], [129, 12398.14135742922, 12764.597577868833], [130, 3591.916583052573, 5512.542317372496], [131, 8678.338743852582, 3492.567235915928], [132, 12494.775552976364, 6064.11092994111], [133, 7524.495091482984, 5252.605196037808], [134, 10976.636070671184, 14811.14637322766], [135, 11703.074542910283, 14417.34201621286], [136, 5322.85026761163, 9776.017516578271], [137, 7198.31407485942, 2115.7471967125352], [138, 8698.751298123254, 581.9540863444824], [139, 9585.161087433098, 13189.064059579274], [140, 6672.725800053486, 597.4038981631109], [141, 6628.764177794677, 116.2436237404288], [142, 7646.253674998196, 6326.810914440636], [143, 6612.867014499161, 14546.12616367658], [144, 10691.202342780178, 14657.154089471394], [145, 12273.460577282818, 3141.5569910485915], [146, 3914.641720325825, 3762.2295290353595], [147, 6966.066481801841, 3271.4602209771765], [148, 10362.213338984706, 8477.943900795777], [149, 4041.9094157701825, 5570.320862885454], [150, 4321.887584826633, 1102.033291770134], [151, 3973.786680369867, 7986.874110931743], [152, 12250.186958086262, 13214.07872785403], [153, 6715.267020024111, 5228.586083740231], [154, 11338.65163631979, 3045.2260953741243], [155, 7598.334842392821, 14891.322726805713], [156, 4595.084249216333, 14425.66397583135], [157, 9074.135423200625, 11868.32118550126], [158, 12072.262286389972, 3999.9891481699406], [159, 7624.955704003734, -56.83316196963312], [160, 12029.72856177935, 273.69474602371577], [161, 10679.542951683736, 14428.431288543934], [162, 3556.3232643515457, 14186.44640939319], [163, 4527.24447971801, 8313.834726631438], [164, 12971.650117183643, 11010.570086023201], [165, 3370.6078609888887, 13921.43130957909], [166, 8680.06953407724, 9760.298397156423], [167, 12402.732062488862, 3813.214942657582], [168, 5155.891179469107, 14048.9612286044], [169, 11181.376953420484, 10823.171031284524], [170, 8297.168531209452, 11097.997619204198], [171, 12979.872050527216, 14094.206847454767], [172, 9003.006834666372, 3877.807555797889], [173, 6240.850342949352, 6122.157117527533], [174, 8230.38817133841, 12971.994555245157], [175, 8301.762192267552, 9089.107006341308], [176, 7549.2328129506195, 8833.73378945586], [177, 6766.169881958385, 4122.87932231103], [178, 8063.752674959231, 14585.708901172322], [179, 5084.6371375966655, 5512.911040834763]];
+
+  const margin = { top: 16, right: 20, bottom: 44, left: 62 };
+  const plotW = 820 - margin.left - margin.right;
+  const plotH = 460 - margin.top - margin.bottom;
+
+  const xMin = 0, xMax = 14000;
+  const yMin = -4000, yMax = 16000;
+
+  const xScale = v => margin.left + (v - xMin) / (xMax - xMin) * plotW;
+  const yScale = v => margin.top + plotH - (v - yMin) / (yMax - yMin) * plotH;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs) => {
+    const e = document.createElementNS(svgNS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  };
+
+  const gridG = document.getElementById('gridlines');
+  const axesG = document.getElementById('axes');
+  const xTicks = [0, 2000, 4000, 6000, 8000, 10000, 12000, 14000];
+  const yTicks = [-4000, 0, 4000, 8000, 12000, 16000];
+  const fmt = n => n.toLocaleString();
+
+  yTicks.forEach(t => {
+    const y = yScale(t);
+    gridG.appendChild(el('line', { class: 'grid-line', x1: margin.left, x2: margin.left + plotW, y1: y, y2: y }));
+    const lbl = el('text', { class: 'tick-label', x: margin.left - 8, y: y + 3, 'text-anchor': 'end' });
+    lbl.textContent = fmt(t);
+    axesG.appendChild(lbl);
+  });
+  xTicks.forEach(t => {
+    const x = xScale(t);
+    const lbl = el('text', { class: 'tick-label', x: x, y: margin.top + plotH + 16, 'text-anchor': 'middle' });
+    lbl.textContent = fmt(t);
+    axesG.appendChild(lbl);
+  });
+
+  axesG.appendChild(el('line', { class: 'axis-line', x1: margin.left, x2: margin.left + plotW, y1: margin.top + plotH, y2: margin.top + plotH }));
+  axesG.appendChild(el('line', { class: 'axis-line', x1: margin.left, x2: margin.left, y1: margin.top, y2: margin.top + plotH }));
+
+  const xTitle = el('text', { class: 'axis-title', x: margin.left + plotW / 2, y: 456, 'text-anchor': 'middle' });
+  xTitle.textContent = 'Target return (RTG at episode start)';
+  axesG.appendChild(xTitle);
+
+  const yTitle = el('text', { class: 'axis-title', x: -(margin.top + plotH / 2), y: 16, 'text-anchor': 'middle', transform: 'rotate(-90)' });
+  yTitle.textContent = 'Achieved return (sum of rewards)';
+  axesG.appendChild(yTitle);
+
+  const refG = document.getElementById('refline');
+  const refEnd = Math.min(xMax, yMax);
+  refG.appendChild(el('line', { class: 'ref-line', x1: xScale(0), y1: yScale(0), x2: xScale(refEnd), y2: yScale(refEnd) }));
+
+  const ptsG = document.getElementById('points');
+  const tooltip = document.getElementById('tooltip');
+  const card = document.querySelector('.card');
+  const tbody = document.getElementById('table-body');
+
+  data.forEach(d => {
+    const [ep, target, achieved] = d;
+    const diff = achieved - target;
+    const cls = diff >= 0 ? 'pos' : 'neg';
+    const cx = xScale(target), cy = yScale(achieved);
+
+    const g = el('g', { class: 'pt', tabindex: '0' });
+    g.appendChild(el('circle', { class: 'pt-hit', cx, cy, r: 12 }));
+    g.appendChild(el('circle', { class: `pt-dot ${cls}`, cx, cy }));
+    ptsG.appendChild(g);
+
+    const show = () => {
+      tooltip.innerHTML = '';
+      const val = document.createElement('div');
+      val.className = 'tt-val';
+      val.textContent = `Episode ${ep} — achieved ${fmt(Math.round(achieved))}`;
+      const sub = document.createElement('div');
+      sub.className = 'tt-sub';
+      sub.textContent = `target ${fmt(Math.round(target))} · diff ${diff >= 0 ? '+' : ''}${fmt(Math.round(diff))}`;
+      tooltip.appendChild(val);
+      tooltip.appendChild(sub);
+      const rect = card.getBoundingClientRect();
+      const svgRect = document.getElementById('chart').getBoundingClientRect();
+      const scaleX = svgRect.width / 820;
+      const scaleY = svgRect.height / 460;
+      tooltip.style.left = (svgRect.left - rect.left + cx * scaleX) + 'px';
+      tooltip.style.top = (svgRect.top - rect.top + cy * scaleY - 10) + 'px';
+      tooltip.style.opacity = '1';
+    };
+    const hide = () => { tooltip.style.opacity = '0'; };
+
+    g.addEventListener('pointerenter', show);
+    g.addEventListener('pointerleave', hide);
+    g.addEventListener('focus', show);
+    g.addEventListener('blur', hide);
+
+    const row = document.createElement('tr');
+    const cells = [
+      ep + 1,
+      fmt(Math.round(target)),
+      fmt(Math.round(achieved)),
+    ];
+    row.innerHTML = `<td>${cells[0]}</td><td>${cells[1]}</td><td>${cells[2]}</td>` +
+      `<td class="${diff >= 0 ? 'diff-pos' : 'diff-neg'}">${diff >= 0 ? '+' : ''}${fmt(Math.round(diff))}</td>`;
+    tbody.appendChild(row);
+  });
+</script>

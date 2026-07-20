@@ -1,2 +1,2 @@
 # my-blogger-pages
-GitHub Pages site
+GitHub Pages sites
